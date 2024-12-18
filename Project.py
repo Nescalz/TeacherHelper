@@ -23,7 +23,7 @@ class MainWindow(QWidget):
     def initUI(self):
         self.setWindowTitle("Login")
         self.resize(756, 488)
-        self.setWindowIcon(QIcon('Screenshot_21.png'))
+        self.setWindowIcon(QIcon('image.png'))
 
         self.general_text = QLabel("Добро пожаловать!\nВойдите в систему")
         self.general_text.setFont(QFont('Regular', 24))
