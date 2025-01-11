@@ -4,6 +4,12 @@ from PyQt5.QtGui import *
 from sqlite3 import *
 from random import randint
 import os
+
+if not os.path.exists(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests")):
+    os.makedirs(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests"))
+else:
+    pass
+
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 connectdb = connect("database.db")
 cursor = connectdb.cursor()
@@ -88,24 +94,41 @@ class MainWindow(QWidget):
 
     def register(self):
         if self.login.text() and self.password.text():
-
             randomid = randint(10000000, 99999999) #89 999 999 возможных комбинаций id
-            cursor.execute(                                                    #
-                'INSERT INTO Users (id, username, password) VALUES (?, ?, ?)', # данный строки преднозначены для защиты от sql иньекции
-                (randomid, self.login.text(), self.password.text())            #
-            )
-            print(randomid)
-            connectdb.commit()
-            connectdb.close()
-
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)  
-            msg.setWindowTitle("Информация")  
-            msg.setText("Вы зарегистрированы!")  
-            msg.setInformativeText("Нажмите ОК и войдите в систему.")  
-            msg.setStandardButtons(QMessageBox.Ok) 
-            msg.exec_()
-            self.back_to_login()
+            cursor.execute("SELECT username FROM users WHERE username = ?", (self.login.text(),))
+            res = cursor.fetchone()
+            if res:
+                msgwarning = QMessageBox()
+                msgwarning.setIcon(QMessageBox.Critical)
+                msgwarning.setText("Ошибка!")
+                msgwarning.setInformativeText('Такой логин уже существует, пожалуйста, выберете новый.')
+                msgwarning.setWindowTitle("Error")
+                msgwarning.setStandardButtons(QMessageBox.Ok) 
+                msgwarning.exec_()
+            else:
+                cursor.execute("SELECT id FROM users WHERE id = ?", (randomid,))
+                res = cursor.fetchone()
+                if res:
+                    while res:         
+                        randomid = randint(10000000, 99999999)
+                        cursor.execute("SELECT id FROM users WHERE id = ?", (randomid,))
+                        res = cursor.fetchone()
+                else:
+                    cursor.execute(                                                    #
+                        'INSERT INTO Users (id, username, password) VALUES (?, ?, ?)', # данный строки преднозначены для защиты от sql иньекции
+                        (randomid, self.login.text(), self.password.text())            #
+                    )                                                                  #
+                    connectdb.commit()
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Information)  
+                    msg.setWindowTitle("Информация")  
+                    msg.setText("Вы зарегистрированы!")  
+                    msg.setInformativeText("Нажмите ОК и войдите в систему.")  
+                    msg.setStandardButtons(QMessageBox.Ok) 
+                    msg.exec_()
+                    self.login.setText("")
+                    self.password.setText("")
+                    self.back_to_login()
         else:
             msgwarning = QMessageBox()
             msgwarning.setIcon(QMessageBox.Critical)
@@ -114,13 +137,23 @@ class MainWindow(QWidget):
             msgwarning.setWindowTitle("Error")
             msgwarning.exec_()
     def login_star(self):
-        print(1)
         connectdb = connect("database.db")
         cursor = connectdb.cursor()
-        cursor.execute('SELECT * FROM Users WHERE username == ? AND password == ?', (self.login.text(), self.password.text()))
+        cursor.execute('SELECT * FROM Users WHERE username == ? AND password == ?', (self.login.text(), self.password.text(),))
         results = cursor.fetchall()
-        print(results)
-        if results == False:
+        ad = bool(results)
+        if ad:
+            msgwarning = QMessageBox()
+            msgwarning.setIcon(QMessageBox.Information)
+            msgwarning.setText("Добрый день,")
+            msgwarning.setFont(QFont("Times", 12, QFont.Bold))
+            msgwarning.setInformativeText(f'{results[0][1]}')
+            msgwarning.setWindowTitle("")
+            msgwarning.setStandardButtons(QMessageBox.Ok) 
+            msgwarning.exec_()
+
+            self.general_windows()
+        else:    
             msgwarning = QMessageBox()
             msgwarning.setIcon(QMessageBox.Critical)
             msgwarning.setText("Ошибка!")
@@ -128,10 +161,8 @@ class MainWindow(QWidget):
             msgwarning.setWindowTitle("Error")
             msgwarning.setStandardButtons(QMessageBox.Ok) 
             msgwarning.exec_()
-        else:
-            
-            print(results)
-        #доделать, сообщение не выводится!!!
+    def general_windows(self):
+        pass
 
        
 def main():
