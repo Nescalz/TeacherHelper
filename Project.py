@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS Users (
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
+        self.user = None
+        self.id = None
         self.initUI()
 
     def initUI(self):
@@ -65,7 +67,7 @@ class MainWindow(QWidget):
 
         self.button_register.clicked.connect(self.start_reg)
         self.button_login.clicked.connect(self.login_star)
-
+    
     def start_reg(self):
         self.general_text.setText("Если вы тут первый раз\nПройдите верификацию")
         self.setWindowTitle("Register")
@@ -91,6 +93,7 @@ class MainWindow(QWidget):
 
         self.button_register.clicked.disconnect()
         self.button_register.clicked.connect(self.start_reg)
+        
 
     def register(self):
         if self.login.text() and self.password.text():
@@ -108,7 +111,9 @@ class MainWindow(QWidget):
             else:
                 cursor.execute("SELECT id FROM users WHERE id = ?", (randomid,))
                 res = cursor.fetchone()
+                #проверка на возможный логин
                 if res:
+                    #Проверка на возможный id
                     while res:         
                         randomid = randint(10000000, 99999999)
                         cursor.execute("SELECT id FROM users WHERE id = ?", (randomid,))
@@ -142,17 +147,23 @@ class MainWindow(QWidget):
         cursor.execute('SELECT * FROM Users WHERE username == ? AND password == ?', (self.login.text(), self.password.text(),))
         results = cursor.fetchall()
         ad = bool(results)
+        
         if ad:
+            self.user = results[0][1]
+            self.id = results[0][0]
             msgwarning = QMessageBox()
             msgwarning.setIcon(QMessageBox.Information)
             msgwarning.setText("Добрый день,")
             msgwarning.setFont(QFont("Times", 12, QFont.Bold))
-            msgwarning.setInformativeText(f'{results[0][1]}')
+            msgwarning.setInformativeText(f'{self.user}')
             msgwarning.setWindowTitle("")
             msgwarning.setStandardButtons(QMessageBox.Ok) 
             msgwarning.exec_()
+            self.close()
 
-            self.general_windows()
+            self.make = MainW(self.user, self.id)
+
+            self.make.show()
         else:    
             msgwarning = QMessageBox()
             msgwarning.setIcon(QMessageBox.Critical)
@@ -161,15 +172,84 @@ class MainWindow(QWidget):
             msgwarning.setWindowTitle("Error")
             msgwarning.setStandardButtons(QMessageBox.Ok) 
             msgwarning.exec_()
-    def general_windows(self):
-        pass
+        
 
+class MainW(QWidget):
+    def __init__(self, user, id):
+        super().__init__()
+        self.user = user
+        self.id = id
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle("Version 1")
+        self.resize(1115, 800)
+        self.setWindowIcon(QIcon('image.png'))
+
+        self.button1 = QPushButton("Заявки в класс")
+        self.button2 = QPushButton("Задать тест")
+
+        self.text1 = QLabel("Список учеников")
+        self.text2 = QLabel("Статистика класса")
+        self.text3 = QLabel(self.user)
+        self.text4 = QLabel(f'ID: {self.id}')
+        self.text5 = QLabel("Выбирите класс")
+        self.text6 = QLabel("для просмотра информации")
+
+        self.classes = QListWidget()
+        self.classes2 = QListWidget()
+        
+        self.people = QListWidget()
+        self.rabot = QListWidget()
+        
+        self.image_label = QLabel(self)
+        self.pixmap = QPixmap("avatar.png")
+        self.image_label.setPixmap(self.pixmap)
+        
+
+        general_line = QHBoxLayout()
+
+        line1 = QVBoxLayout()
+        self.text1.setFont(QFont("Times New Roman", 12))
+        line1.addWidget(self.text1, alignment=Qt.AlignHCenter)
+        line1.addWidget(self.people)
+        line1.addWidget(self.button1)
+        line2 = QVBoxLayout()
+        self.text5.setFont(QFont("Times New Roman", 12))
+        line2.addWidget(self.text5, alignment=Qt.AlignHCenter)
+        self.text6.setFont(QFont("Times New Roman", 10))
+        line2.addWidget(self.text6, alignment=Qt.AlignHCenter)
+        line2.addWidget(self.classes)
+        line2.addWidget(self.classes2)
+
+        line23 = QHBoxLayout()
+        line23.addWidget(self.image_label)
+        line23.addWidget(self.text3)
+
+        line3 = QVBoxLayout()
+        line3.addWidget(self.rabot)
+        line4 = QVBoxLayout()
+        line4.addLayout(line23)
+
+        self.text4.setStyleSheet("color: blue; text-decoration: underline;")
+        line4.addWidget(self.text4, alignment=Qt.AlignHCenter)
+        self.clipboard = QApplication.clipboard()
+        
+        self.text4.mousePressEvent = self.clipboard.setText(str(self.id))
+        line4.addStretch(1)
+        line4.addWidget(self.button2)
+        general_line.addLayout(line1)
+        general_line.addLayout(line2)
+        general_line.addLayout(line3)
+        general_line.addLayout(line4)
+        self.setLayout(general_line)
        
 def main():
     app = QApplication([])
     window = MainWindow()
     window.show()
     app.exec_()
+
 
 if __name__ == "__main__":
     main()
