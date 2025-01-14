@@ -11,6 +11,7 @@ else:
     pass
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 connectdb = connect("database.db")
 cursor = connectdb.cursor()
 cursor.execute('''
@@ -21,6 +22,32 @@ CREATE TABLE IF NOT EXISTS Users (
 )
 ''')
 
+connectdb = connect("test.db")
+cursor = connectdb.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS students (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    teacher_id TEXT NOT NULL,
+    telegram_id TEXT UNIQUE NOT NULL,
+    otmetca INTEGER NOT NULL
+)
+''')
+connectdb.commit()
+connectdb.close()
+
+connectdb = connect("student.db")
+cursor = connectdb.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS students (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    teacher_id TEXT NOT NULL,
+    telegram_id TEXT UNIQUE NOT NULL
+)
+''')
+connectdb.commit()
+connectdb.close()
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -172,7 +199,39 @@ class MainWindow(QWidget):
             msgwarning.setWindowTitle("Error")
             msgwarning.setStandardButtons(QMessageBox.Ok) 
             msgwarning.exec_()
-        
+#запросы - отправки
+def zapros_test(name, telegram_id):
+    connectdb = connect("test.db")
+    cursor = connectdb.cursor()
+    cursor.execute('SELECT * FROM test WHERE name == ? AND telegram_id == ?', (name, telegram_id,))
+    results = cursor.fetchall()
+    if results:
+        print(results)
+
+    else:
+        print("пользователь не найден")
+    connectdb.close()
+
+def otpravka_test(telegram_id, name):
+    connectdb = connect("test.db")
+    cursor = connectdb.cursor()
+    a = 0
+    cursor.execute('SELECT * FROM test WHERE id == ?'(a,))
+    results = cursor.fetchall()
+    if results:
+        while results != False:
+            a += 1
+            cursor.execute('SELECT * FROM test WHERE id == ?'(a,))
+    else:
+        pass
+
+    cursor.execute(                                                    #
+                        'INSERT INTO test (id, name, telegram_id) VALUES (?, ?, ?)', # данный строки преднозначены для защиты от sql иньекции
+                        (a, name, telegram_id)            #
+                    )   
+    results = cursor.fetchall()
+    connectdb.commit()
+    connectdb.close()
 
 class MainW(QWidget):
     def __init__(self, user, id):
@@ -224,6 +283,8 @@ class MainW(QWidget):
 
         line23 = QHBoxLayout()
         line23.addWidget(self.image_label)
+        self.text3.setStyleSheet("color: black; text-decoration: bolt;")
+        self.text3.setFont(QFont("Times New Roman", 13))
         line23.addWidget(self.text3)
 
         line3 = QVBoxLayout()
@@ -243,14 +304,44 @@ class MainW(QWidget):
         general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
-       
+        self.add_student("Иванов Иван")
+        self.add_student("Петров Петр")
+        self.add_student("Сидоров Сидор")
+    def add_student(self, name):
+        container = QWidget()
+        container_layout = QHBoxLayout(container)
+        container_layout.setContentsMargins(5, 5, 5, 5)
+
+        label = QLabel(name, container)
+        delete_button = QPushButton("Удалить", container)
+        settings_button = QPushButton("Настройки", container)
+
+        delete_button.clicked.connect(lambda: self.delete_student(container))
+        settings_button.clicked.connect(lambda: self.settings_clicked(name))
+        container_layout.addWidget(label)
+        container_layout.addWidget(delete_button)
+        container_layout.addWidget(settings_button)
+
+        item = QListWidgetItem(self.people)
+        item.setSizeHint(container.sizeHint())
+        self.people.addItem(item)
+        self.people.setItemWidget(item, container)
+
+    def delete_student(self, container):
+        for i in range(self.people.count()):
+            item = self.people.item(i)
+            widget = self.people.itemWidget(item)
+            if widget == container:
+                self.people.takeItem(i)
+                break
+
+    def settings_clicked(self, name):
+        print(f"Открыть настройки для {name}")
 def main():
     app = QApplication([])
     window = MainWindow()
     window.show()
     app.exec_()
-
-
 if __name__ == "__main__":
     main()
     connectdb.commit()
