@@ -4,7 +4,9 @@ from PyQt5.QtGui import *
 from sqlite3 import *
 from random import randint
 import os
-
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from window2 import SYSWIN
 if not os.path.exists(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests")):
     os.makedirs(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests"))
 else:
@@ -43,7 +45,9 @@ CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     teacher_id TEXT NOT NULL,
-    telegram_id TEXT UNIQUE NOT NULL
+    telegram_id TEXT UNIQUE NOT NULL,
+    auth BOOLEAN,
+    clas TEXT
 )
 ''')
 connectdb.commit()
@@ -233,6 +237,8 @@ def otpravka_test(telegram_id, name):
     connectdb.commit()
     connectdb.close()
 
+app = QApplication([])
+
 class MainW(QWidget):
     def __init__(self, user, id):
         super().__init__()
@@ -241,84 +247,141 @@ class MainW(QWidget):
         self.initUI()
 
     def initUI(self):
+        #проверка на новый запрос от ученика ДЛЯ ПОКАЗА НОВОГО!!!
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT full_name FROM students WHERE auth = 1 AND teacher_id = ?', (self.id,))
+        results = cursor.fetchall()
+        if results: zvezda = "*"
+        else: zvezda = ""
+
         self.setWindowTitle("Version 1")
         self.resize(1115, 800)
         self.setWindowIcon(QIcon('image.png'))
 
-        self.button1 = QPushButton("Заявки в класс")
+        self.button1 = QPushButton("Заявки в класс", zvezda)
         self.button2 = QPushButton("Задать тест")
 
         self.text1 = QLabel("Список учеников")
         self.text2 = QLabel("Статистика класса")
         self.text3 = QLabel(self.user)
         self.text4 = QLabel(f'ID: {self.id}')
-        self.text5 = QLabel("Выбирите класс")
+        self.text5 = QLabel("Выберите класс")
         self.text6 = QLabel("для просмотра информации")
 
         self.classes = QListWidget()
-        self.classes2 = QListWidget()
-        
-        self.people = QListWidget()
         self.rabot = QListWidget()
-        
+        self.people = QListWidget()
+
         self.image_label = QLabel(self)
         self.pixmap = QPixmap("avatar.png")
         self.image_label.setPixmap(self.pixmap)
-        
 
+        # Линия с общей структурой
         general_line = QHBoxLayout()
 
+        # Лайаут 1: Список учеников
         line1 = QVBoxLayout()
         self.text1.setFont(QFont("Times New Roman", 12))
         line1.addWidget(self.text1, alignment=Qt.AlignHCenter)
         line1.addWidget(self.people)
         line1.addWidget(self.button1)
+
+        # Лайаут 2: Список классов и работ
         line2 = QVBoxLayout()
         self.text5.setFont(QFont("Times New Roman", 12))
         line2.addWidget(self.text5, alignment=Qt.AlignHCenter)
         self.text6.setFont(QFont("Times New Roman", 10))
         line2.addWidget(self.text6, alignment=Qt.AlignHCenter)
         line2.addWidget(self.classes)
-        line2.addWidget(self.classes2)
+        line2.addWidget(self.rabot)
 
+        # Лайаут с изображением и именем пользователя
         line23 = QHBoxLayout()
         line23.addWidget(self.image_label)
-        self.text3.setStyleSheet("color: black; text-decoration: bolt;")
+        self.text3.setStyleSheet("color: black; text-decoration: bold;")
         self.text3.setFont(QFont("Times New Roman", 13))
         line23.addWidget(self.text3)
 
+        # Лайаут 3: Статистика с диаграммой
         line3 = QVBoxLayout()
-        line3.addWidget(self.rabot)
+        line3.addWidget(self.text2, alignment=Qt.AlignHCenter)
+        self.canvas = self.create_pie_chart()
+        line3.addWidget(self.canvas)
+
+        # Лайаут 4: Пользовательская информация
         line4 = QVBoxLayout()
         line4.addLayout(line23)
-
         self.text4.setStyleSheet("color: blue; text-decoration: underline;")
         line4.addWidget(self.text4, alignment=Qt.AlignHCenter)
-        self.clipboard = QApplication.clipboard()
-        
-        self.text4.mousePressEvent = self.clipboard.setText(str(self.id))
         line4.addStretch(1)
         line4.addWidget(self.button2)
+              
+        # Компоновка всех частей
         general_line.addLayout(line1)
         general_line.addLayout(line2)
         general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
-        self.add_student("Иванов Иван")
-        self.add_student("Петров Петр")
-        self.add_student("Сидоров Сидор")
-    def add_student(self, name):
+
+        self.student()
+    def student(self):
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT full_name FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
+        results = cursor.fetchall()
+
+        for result in results:
+            full_name = result[0]  
+            parts = full_name.split() 
+            if len(parts) >= 2:  
+                last_name = parts[0]
+                names = ''.join(f'{name[0]}.' for name in parts[1:]) 
+                itog = f'{last_name} {names}'
+            else:
+                itog = full_name  
+            self.ids = results[0][0]
+            self.add_student(itog, self.ids)  
+
+
+        connectdb.close()
+
+        connectdb.close()
+    def create_pie_chart(self):
+        """Создание круговой диаграммы для отображения статистики класса."""
+        figure = Figure()
+        canvas = FigureCanvas(figure)
+        ax = figure.add_subplot(111)
+        #делать
+        data = [40, 30, 20, 10]
+        labels = ['5', '4', '3', '2']
+        ax.pie(data, labels=labels, autopct='%1.1f%%')
+        ax.set_title("Статистика класса")
+        return canvas
+
+    def add_student(self, name, ids):
         container = QWidget()
         container_layout = QHBoxLayout(container)
         container_layout.setContentsMargins(5, 5, 5, 5)
+        container_layout.setSpacing(10)
+
 
         label = QLabel(name, container)
+        label.setWordWrap(True) 
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         delete_button = QPushButton("Удалить", container)
-        settings_button = QPushButton("Настройки", container)
+        delete_button.setFixedWidth(60) 
 
-        delete_button.clicked.connect(lambda: self.delete_student(container))
+
+        settings_button = QPushButton("Настройки", container)
+        settings_button.setFixedWidth(70) 
+
+
+        delete_button.clicked.connect(lambda: self.delete_student(container, ids))
         settings_button.clicked.connect(lambda: self.settings_clicked(name))
-        container_layout.addWidget(label)
+
+
+        container_layout.addWidget(label, stretch=1)
         container_layout.addWidget(delete_button)
         container_layout.addWidget(settings_button)
 
@@ -327,16 +390,31 @@ class MainW(QWidget):
         self.people.addItem(item)
         self.people.setItemWidget(item, container)
 
-    def delete_student(self, container):
-        for i in range(self.people.count()):
-            item = self.people.item(i)
-            widget = self.people.itemWidget(item)
-            if widget == container:
-                self.people.takeItem(i)
-                break
-
-    def settings_clicked(self, name):
-        print(f"Открыть настройки для {name}")
+    def delete_student(self, container, ids):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Информация")
+        msg.setText("Вы уверены, что хотите удалить пользователя?")
+        msg.setInformativeText("После удаления ученик не будет больше состоять в вашем классе!")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No) 
+        response = msg.exec_()
+        if response == QMessageBox.Yes:
+            for i in range(self.people.count()):
+                item = self.people.item(i)
+                widget = self.people.itemWidget(item)
+                if widget == container:
+                    self.people.takeItem(i)
+                    break
+            connectdb = connect("student.db")
+            cursor = connectdb.cursor()
+            cursor.execute("DELETE FROM students WHERE id = ?", (ids,))
+            connectdb.commit()
+            connectdb.close()
+        elif response == QMessageBox.No:
+            pass
+    #делать
+    def settings_clicked(self, name):    
+        SYSWIN(name)
 def main():
     app = QApplication([])
     window = MainWindow()
