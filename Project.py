@@ -250,7 +250,7 @@ class MainW(QWidget):
         #проверка на новый запрос от ученика ДЛЯ ПОКАЗА НОВОГО!!!
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
-        cursor.execute('SELECT full_name FROM students WHERE auth = 1 AND teacher_id = ?', (self.id,))
+        cursor.execute('SELECT * FROM students WHERE auth = 1 AND teacher_id = ?', (self.id,))
         results = cursor.fetchall()
         if results: zvezda = "*"
         else: zvezda = ""
@@ -259,7 +259,7 @@ class MainW(QWidget):
         self.resize(1115, 800)
         self.setWindowIcon(QIcon('image.png'))
 
-        self.button1 = QPushButton("Заявки в класс", zvezda)
+        self.button1 = QPushButton(f"Заявки в класс{zvezda}")
         self.button2 = QPushButton("Задать тест")
 
         self.text1 = QLabel("Список учеников")
@@ -323,12 +323,12 @@ class MainW(QWidget):
         general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
-
+        self.add_student("Омар", 123)
         self.student()
     def student(self):
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
-        cursor.execute('SELECT full_name FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
+        cursor.execute('SELECT * FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
         results = cursor.fetchall()
 
         for result in results:
@@ -414,7 +414,9 @@ class MainW(QWidget):
             pass
     #делать
     def settings_clicked(self, name):    
-        SYSWIN(name)
+        self.sys_window = SYSWIN(name)  
+        self.sys_window.setWindowFlags(Qt.WindowStaysOnTopHint)  
+        self.sys_window.show()
 def main():
     app = QApplication([])
     window = MainWindow()
