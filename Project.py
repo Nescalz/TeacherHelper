@@ -27,11 +27,11 @@ CREATE TABLE IF NOT EXISTS Users (
 connectdb = connect("test.db")
 cursor = connectdb.cursor()
 cursor.execute('''
-CREATE TABLE IF NOT EXISTS students (
+CREATE TABLE IF NOT EXISTS test (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     teacher_id TEXT NOT NULL,
-    telegram_id TEXT UNIQUE NOT NULL,
+    student_id TEXT UNIQUE NOT NULL,
     otmetca INTEGER NOT NULL
 )
 ''')
@@ -52,6 +52,26 @@ CREATE TABLE IF NOT EXISTS students (
 ''')
 connectdb.commit()
 connectdb.close()
+#Пример заполниния тестов
+# connectdb = connect("test.db")  # Подключение к базе данных
+# cursor = connectdb.cursor()
+# cursor.execute('''
+#     INSERT INTO test (id, name, student_id, teacher_id, otmetca)
+#     VALUES (?, ?, ?, ?, ?)
+# ''', (1, "Тест для маленьких", 1, 91831411, 2))
+# connectdb.commit()
+# connectdb.close()
+
+#Пример заполнения студентов
+# connectdb = connect("student.db")  # Подключение к базе данных
+# cursor = connectdb.cursor()
+# cursor.execute('''
+#     INSERT INTO students (name, id, teacher_id, telegram_id, auth, clas)
+#     VALUES (?, ?, ?, ?, ?, ?)
+# ''', ("Тайлер Дерден Алексанлрович", 1, 91831411, "@Nescalz", 0 **(1 - Требуется принять ученика учителем, 0 - Ученик уже находится под надзором учителя)** , "1Б"))
+# connectdb.commit()
+# connectdb.close()
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -219,7 +239,7 @@ def zapros_test(name, telegram_id):
 def otpravka_test(telegram_id, name):
     connectdb = connect("test.db")
     cursor = connectdb.cursor()
-    a = 0
+    a = "0"
     cursor.execute('SELECT * FROM test WHERE id == ?'(a,))
     results = cursor.fetchall()
     if results:
@@ -323,30 +343,38 @@ class MainW(QWidget):
         general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
-        self.add_student("Омар", 123)
         self.student()
     def student(self):
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute('SELECT * FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
-        results = cursor.fetchall()
+        results = cursor.fetchall() 
+
+        
+        connectdb_tests = connect("test.db")
+        cursor_tests = connectdb_tests.cursor()
 
         for result in results:
-            full_name = result[0]  
-            parts = full_name.split() 
+            full_name = result[1]  
+            parts = full_name.split()
             if len(parts) >= 2:  
                 last_name = parts[0]
-                names = ''.join(f'{name[0]}.' for name in parts[1:]) 
-                itog = f'{last_name} {names}'
+                initials = ''.join(f'{name[0]}.' for name in parts[1:])
+                itog = f'{last_name} {initials}'
             else:
-                itog = full_name  
-            self.ids = results[0][0]
-            self.add_student(itog, self.ids)  
+                itog = full_name
+            self.ids = result[0]
+            telegram_user = result[3]
 
+            cursor_tests.execute('SELECT name, otmetca FROM test WHERE student_id = ?', (self.ids,))
+            test_and_ochenky = {test[0]: test[1] for test in cursor_tests.fetchall()}
+
+            klass = result[5] 
+            self.add_student(itog, self.ids, telegram_user, test_and_ochenky, klass)
 
         connectdb.close()
+        connectdb_tests.close()
 
-        connectdb.close()
     def create_pie_chart(self):
         """Создание круговой диаграммы для отображения статистики класса."""
         figure = Figure()
@@ -359,7 +387,7 @@ class MainW(QWidget):
         ax.set_title("Статистика класса")
         return canvas
 
-    def add_student(self, name, ids):
+    def add_student(self, name, ids, telegram_user, test_and_ochenky, klass):
         container = QWidget()
         container_layout = QHBoxLayout(container)
         container_layout.setContentsMargins(5, 5, 5, 5)
@@ -369,20 +397,15 @@ class MainW(QWidget):
         label = QLabel(name, container)
         label.setWordWrap(True) 
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        delete_button = QPushButton("Удалить", container)
-        delete_button.setFixedWidth(60) 
-
 
         settings_button = QPushButton("Настройки", container)
         settings_button.setFixedWidth(70) 
 
 
-        delete_button.clicked.connect(lambda: self.delete_student(container, ids))
-        settings_button.clicked.connect(lambda: self.settings_clicked(name))
+        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
 
 
         container_layout.addWidget(label, stretch=1)
-        container_layout.addWidget(delete_button)
         container_layout.addWidget(settings_button)
 
         item = QListWidgetItem(self.people)
@@ -413,11 +436,17 @@ class MainW(QWidget):
         elif response == QMessageBox.No:
             pass
     #делать
-    def settings_clicked(self, name):    
-        self.sys_window = SYSWIN(name)  
+    def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass):   
+        print(name)
+        print(ids)
+        print(telegram_user)
+        print(test_and_ochenky)
+        print(klass)
+        self.sys_window = SYSWIN(name, ids, telegram_user, test_and_ochenky, klass)  
         self.sys_window.setWindowFlags(Qt.WindowStaysOnTopHint)  
         self.sys_window.show()
 def main():
+
     app = QApplication([])
     window = MainWindow()
     window.show()
