@@ -6,7 +6,7 @@ from random import randint
 import os
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from window2 import SYSWIN
+
 if not os.path.exists(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests")):
     os.makedirs(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests"))
 else:
@@ -276,7 +276,7 @@ class MainW(QWidget):
         else: zvezda = ""
 
         self.setWindowTitle("Version 1")
-        self.resize(1115, 800)
+        self.resize(1244, 800)
         self.setWindowIcon(QIcon('image.png'))
 
         self.button1 = QPushButton(f"Заявки в класс{zvezda}")
@@ -388,44 +388,45 @@ class MainW(QWidget):
         return canvas
 
     def add_student(self, name, ids, telegram_user, test_and_ochenky, klass):
-        container = QWidget()
-        container_layout = QHBoxLayout(container)
-        container_layout.setContentsMargins(5, 5, 5, 5)
-        container_layout.setSpacing(10)
+        self.conte = QWidget()
+        self.conte_layout = QHBoxLayout(self.conte)
+        self.conte_layout.setContentsMargins(5, 5, 5, 5)
+        self.conte_layout.setSpacing(10)
 
 
-        label = QLabel(name, container)
+        label = QLabel(name, self.conte)
         label.setWordWrap(True) 
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        settings_button = QPushButton("Настройки", container)
+        settings_button = QPushButton("Настройки", self.conte)
         settings_button.setFixedWidth(70) 
 
 
         settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
 
 
-        container_layout.addWidget(label, stretch=1)
-        container_layout.addWidget(settings_button)
+        self.conte_layout.addWidget(label, stretch=1)
+        self.conte_layout.addWidget(settings_button)
 
         item = QListWidgetItem(self.people)
-        item.setSizeHint(container.sizeHint())
+        item.setSizeHint(self.conte.sizeHint())
         self.people.addItem(item)
-        self.people.setItemWidget(item, container)
+        self.people.setItemWidget(item, self.conte)
 
-    def delete_student(self, container, ids):
+    def delete_student(self, ids):
         msg = QMessageBox()
+        msg.setWindowFlags(Qt.WindowStaysOnTopHint)  
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle("Информация")
         msg.setText("Вы уверены, что хотите удалить пользователя?")
-        msg.setInformativeText("После удаления ученик не будет больше состоять в вашем классе!")
+        msg.setInformativeText("После удаления ученик больше не будет состоять в вашем классе!")
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No) 
         response = msg.exec_()
         if response == QMessageBox.Yes:
             for i in range(self.people.count()):
                 item = self.people.item(i)
                 widget = self.people.itemWidget(item)
-                if widget == container:
+                if widget == self.conte:
                     self.people.takeItem(i)
                     break
             connectdb = connect("student.db")
@@ -435,18 +436,92 @@ class MainW(QWidget):
             connectdb.close()
         elif response == QMessageBox.No:
             pass
-    #делать
     def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass):   
-        print(name)
-        print(ids)
-        print(telegram_user)
-        print(test_and_ochenky)
-        print(klass)
         self.sys_window = SYSWIN(name, ids, telegram_user, test_and_ochenky, klass)  
         self.sys_window.setWindowFlags(Qt.WindowStaysOnTopHint)  
         self.sys_window.show()
-def main():
 
+class SYSWIN(QWidget):
+    def __init__(self, name, ids, telegram_user, test_and_ochenky, klass):
+        super().__init__()
+        self.name = name
+        self.ids = ids
+        self.tg_user = telegram_user
+        self.test_and_ochenky = test_and_ochenky
+        self.klass = klass
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle("Static")
+        self.resize(756, 488)
+        self.setWindowIcon(QIcon('image.png'))
+
+        # Main Layout
+        main_layout = QGridLayout(self)
+
+        # Left Panel: Student Info and Test Scores
+        left_panel = QVBoxLayout()
+        main_layout.addLayout(left_panel, 0, 0, 1, 1)
+
+        # Student Info
+        self.info_label = QLabel(f"{self.name}\nЛичный ID: {self.ids}\nКласс: {self.klass}\nТелеграм: {self.tg_user}")
+        self.info_label.setAlignment(Qt.AlignLeft)
+        self.info_label.setStyleSheet("font-size: 14px;")
+        left_panel.addWidget(self.info_label)
+
+        # Test Scores List
+        self.test_list = QListWidget()
+        self.test_list.addItem("Тест №1  Оценка: 4")
+        self.test_list.setStyleSheet("background-color: lightgray;")
+        left_panel.addWidget(self.test_list)
+
+        # Right Panel: Stats and Actions
+        right_panel = QVBoxLayout()
+        main_layout.addLayout(right_panel, 0, 1, 1, 1)
+
+        # Stats
+        self.stats_layout = QVBoxLayout()
+        stats_label = QLabel("Статистика")
+        stats_label.setAlignment(Qt.AlignCenter)
+        self.stats_layout.addWidget(stats_label)
+
+        # Pie Chart
+        canvas = self.create_pie_chart()
+        self.stats_layout.addWidget(canvas)
+
+        # Average Score
+        avg_score_label = QLabel("Средний балл: 4.8")
+        avg_score_label.setAlignment(Qt.AlignCenter)
+        self.stats_layout.addWidget(avg_score_label)
+        right_panel.addLayout(self.stats_layout)
+
+        # Action Buttons
+        self.action_layout = QHBoxLayout()
+        self.exclude_button = QPushButton("Исключить ученика")
+        self.exclude_button.clicked.connect(lambda: MainW.delete_student(self, self.ids))
+        self.exclude_button.setStyleSheet("background-color: lightgray;")
+        self.history_button = QPushButton("История")
+        self.history_button.setStyleSheet("background-color: lightgray;")
+        self.action_layout.addWidget(self.exclude_button)
+        self.action_layout.addWidget(self.history_button)
+        right_panel.addLayout(self.action_layout)
+
+    def create_pie_chart(self):
+        # Создаём фигуру и канвас для диаграммы
+        figure = Figure(figsize=(2, 2))  # Размер фигуры уменьшен (2x2 дюйма)
+        canvas = FigureCanvas(figure)
+        canvas.setFixedSize(400, 400)  # Устанавливаем фиксированный размер для канваса
+        ax = figure.add_subplot(111)
+
+        # Данные для диаграммы
+        data = [40, 30, 20, 10]  # Проценты
+        labels = ['5', '4', '3', '2']  # Оценки
+        ax.pie(data, labels=labels, autopct='%1.1f%%', startangle=90)
+        ax.set_title("Оценки за тесты", fontsize=10)  # Уменьшаем размер шрифта заголовка
+
+        return canvas
+
+def main():
     app = QApplication([])
     window = MainWindow()
     window.show()
