@@ -224,17 +224,6 @@ class MainWindow(QWidget):
             msgwarning.setStandardButtons(QMessageBox.Ok) 
             msgwarning.exec_()
 #запросы - отправки
-def zapros_test(name, telegram_id):
-    connectdb = connect("test.db")
-    cursor = connectdb.cursor()
-    cursor.execute('SELECT * FROM test WHERE name == ? AND telegram_id == ?', (name, telegram_id,))
-    results = cursor.fetchall()
-    if results:
-        print(results)
-
-    else:
-        print("пользователь не найден")
-    connectdb.close()
 
 def otpravka_test(telegram_id, name):
     connectdb = connect("test.db")
@@ -343,6 +332,7 @@ class MainW(QWidget):
         general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
+        self.button1.clicked.connect(self.initUI2)
         self.student()
     def student(self):
         connectdb = connect("student.db")
@@ -365,6 +355,7 @@ class MainW(QWidget):
                 itog = full_name
             self.ids = result[0]
             telegram_user = result[3]
+            self.full_name = full_name
 
             cursor_tests.execute('SELECT name, otmetca FROM test WHERE student_id = ?', (self.ids,))
             test_and_ochenky = {test[0]: test[1] for test in cursor_tests.fetchall()}
@@ -388,45 +379,42 @@ class MainW(QWidget):
         return canvas
 
     def add_student(self, name, ids, telegram_user, test_and_ochenky, klass):
-        self.conte = QWidget()
-        self.conte_layout = QHBoxLayout(self.conte)
-        self.conte_layout.setContentsMargins(5, 5, 5, 5)
-        self.conte_layout.setSpacing(10)
+        conte = QWidget()  # Локальная переменная
+        conte_layout = QHBoxLayout(conte)
+        conte_layout.setContentsMargins(5, 5, 5, 5)
+        conte_layout.setSpacing(10)
 
-
-        label = QLabel(name, self.conte)
-        label.setWordWrap(True) 
+        label = QLabel(name, conte)
+        label.setWordWrap(True)
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        settings_button = QPushButton("Настройки", self.conte)
-        settings_button.setFixedWidth(70) 
-
-
+        settings_button = QPushButton("Настройки", conte)
+        settings_button.setFixedWidth(70)
         settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
 
-
-        self.conte_layout.addWidget(label, stretch=1)
-        self.conte_layout.addWidget(settings_button)
+        conte_layout.addWidget(label, stretch=1)
+        conte_layout.addWidget(settings_button)
 
         item = QListWidgetItem(self.people)
-        item.setSizeHint(self.conte.sizeHint())
+        item.setSizeHint(conte.sizeHint())
         self.people.addItem(item)
-        self.people.setItemWidget(item, self.conte)
+        self.people.setItemWidget(item, conte)
 
     def delete_student(self, ids):
         msg = QMessageBox()
-        msg.setWindowFlags(Qt.WindowStaysOnTopHint)  
+        msg.setWindowModality(Qt.ApplicationModal)
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle("Информация")
         msg.setText("Вы уверены, что хотите удалить пользователя?")
         msg.setInformativeText("После удаления ученик больше не будет состоять в вашем классе!")
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No) 
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         response = msg.exec_()
         if response == QMessageBox.Yes:
             for i in range(self.people.count()):
                 item = self.people.item(i)
                 widget = self.people.itemWidget(item)
-                if widget == self.conte:
+                # Проверяем ID текущего виджета, чтобы удалить нужного студента
+                if widget and widget.findChild(QLabel).text() == str(ids):
                     self.people.takeItem(i)
                     break
             connectdb = connect("student.db")
@@ -434,16 +422,75 @@ class MainW(QWidget):
             cursor.execute("DELETE FROM students WHERE id = ?", (ids,))
             connectdb.commit()
             connectdb.close()
-        elif response == QMessageBox.No:
-            pass
-    def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass):   
-        self.sys_window = SYSWIN(name, ids, telegram_user, test_and_ochenky, klass)  
-        self.sys_window.setWindowFlags(Qt.WindowStaysOnTopHint)  
+    def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass):
+        self.sys_window = SYSWIN(self.people, self.full_name, ids, telegram_user, test_and_ochenky, klass)
+        self.sys_window.setWindowModality(Qt.ApplicationModal)
         self.sys_window.show()
+    def initUI2(self):
+        notest_peole = QDialog(self)
+        notest_peole.setWindowTitle("Новое окно")
+        notest_peole.setWindowModality(Qt.ApplicationModal)  # Блокирует доступ к родительскому окну
+        notest_peole.resize(600, 400)
+
+        # Создаем элементы для нового окна
+        label = QListWidget()
+
+        # Компонуем элементы
+        layout = QVBoxLayout()
+        layout.addWidget(label)
+        notest_peole.setLayout(layout)
+        self.amore_moregl()
+        notest_peole.show()
+    def amore_moregl(self):
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 1')
+        results = cursor.fetchall() 
+
+        for result in results:
+            self.name_amore = result[1]
+            self.id_amore = result[0]
+            self.idteacher_amore = result[2]
+            self.tg_amore = result[3]
+            self.clas_amore = result[5]
+
+            print(result[1])
+            print(result[0])
+            print(result[2])
+            print(result[3])
+            print(result[5])
+            
+    def amore_more(self):
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 1')
+        results = cursor.fetchall() 
+
+        conte = QWidget()  
+        conte_layout = QHBoxLayout(conte)
+        conte_layout.setContentsMargins(5, 5, 5, 5)
+        conte_layout.setSpacing(10)
+
+        label = QLabel(name, conte)
+        label.setWordWrap(True)
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        settings_button = QPushButton("Настройки", conte)
+        settings_button.setFixedWidth(70)
+        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
+
+        conte_layout.addWidget(label, stretch=1)
+        conte_layout.addWidget(settings_button)
+
+        item = QListWidgetItem(self.people)
+        item.setSizeHint(conte.sizeHint())
+        self.people.addItem(item)
+        self.people.setItemWidget(item, conte)
 
 class SYSWIN(QWidget):
-    def __init__(self, name, ids, telegram_user, test_and_ochenky, klass):
+    def __init__(self, people, name, ids, telegram_user, test_and_ochenky, klass):
         super().__init__()
+        self.people = people
         self.name = name
         self.ids = ids
         self.tg_user = telegram_user
@@ -462,40 +509,54 @@ class SYSWIN(QWidget):
         # Left Panel: Student Info and Test Scores
         left_panel = QVBoxLayout()
         main_layout.addLayout(left_panel, 0, 0, 1, 1)
+        self.colvo_ochenok = 0
+        colvo_numochenok = 0
+        self.dva = 0
+        self.tri = 0
+        self.chetire = 0
+        self.paty = 0
+        for k, v in self.test_and_ochenky.items(): 
+            self.colvo_ochenok += 1
+            colvo_numochenok += v
+            if v == 2:
+                self.dva += 1
+            elif v == 3:
+                self.tri += 1
+            elif v == 4:
+                self.chetire += 1
+            elif v == 5:
+                self.paty += 1
+        if colvo_numochenok == 0:
+            sred_result = 0
+        else:
+            sred_result = colvo_numochenok/self.colvo_ochenok
+            sred_result = round(sred_result, 2)
 
-        # Student Info
         self.info_label = QLabel(f"{self.name}\nЛичный ID: {self.ids}\nКласс: {self.klass}\nТелеграм: {self.tg_user}")
         self.info_label.setAlignment(Qt.AlignLeft)
         self.info_label.setStyleSheet("font-size: 14px;")
         left_panel.addWidget(self.info_label)
 
-        # Test Scores List
         self.test_list = QListWidget()
-        self.test_list.addItem("Тест №1  Оценка: 4")
         self.test_list.setStyleSheet("background-color: lightgray;")
         left_panel.addWidget(self.test_list)
 
-        # Right Panel: Stats and Actions
         right_panel = QVBoxLayout()
         main_layout.addLayout(right_panel, 0, 1, 1, 1)
 
-        # Stats
         self.stats_layout = QVBoxLayout()
         stats_label = QLabel("Статистика")
         stats_label.setAlignment(Qt.AlignCenter)
         self.stats_layout.addWidget(stats_label)
 
-        # Pie Chart
         canvas = self.create_pie_chart()
         self.stats_layout.addWidget(canvas)
 
-        # Average Score
-        avg_score_label = QLabel("Средний балл: 4.8")
+        avg_score_label = QLabel(f"Средний балл: {sred_result}")
         avg_score_label.setAlignment(Qt.AlignCenter)
         self.stats_layout.addWidget(avg_score_label)
         right_panel.addLayout(self.stats_layout)
 
-        # Action Buttons
         self.action_layout = QHBoxLayout()
         self.exclude_button = QPushButton("Исключить ученика")
         self.exclude_button.clicked.connect(lambda: MainW.delete_student(self, self.ids))
@@ -505,21 +566,70 @@ class SYSWIN(QWidget):
         self.action_layout.addWidget(self.exclude_button)
         self.action_layout.addWidget(self.history_button)
         right_panel.addLayout(self.action_layout)
-
+        for k, v in self.test_and_ochenky.items(): 
+            self.addtests(k, v)
     def create_pie_chart(self):
-        # Создаём фигуру и канвас для диаграммы
-        figure = Figure(figsize=(2, 2))  # Размер фигуры уменьшен (2x2 дюйма)
+        figure = Figure(figsize=(2, 2)) 
         canvas = FigureCanvas(figure)
-        canvas.setFixedSize(400, 400)  # Устанавливаем фиксированный размер для канваса
+        canvas.setFixedSize(400, 400) 
         ax = figure.add_subplot(111)
+        if self.paty != 0:
+            self.paty = self.paty / self.colvo_ochenok * 100
+        else:
+            self.paty = 0
 
-        # Данные для диаграммы
-        data = [40, 30, 20, 10]  # Проценты
-        labels = ['5', '4', '3', '2']  # Оценки
+        if self.tri != 0:
+            self.tri = self.tri / self.colvo_ochenok * 100
+        else:
+            self.tri = 0
+
+        if self.chetire != 0:
+            self.chetire = self.chetire / self.colvo_ochenok * 100
+        else:
+            self.chetire = 0
+
+        if self.dva != 0:
+            self.dva = self.dva / self.colvo_ochenok * 100
+        else:
+            self.dva = 0
+
+        data = [self.paty, self.chetire, self.tri, self.dva]
+        if sum(data) == 0:  # Если нет данных
+            data = [1]  # Устанавливаем минимальные значения
+            labels = ['Нет данных']
+        else:
+            labels = ['5', '4', '3', '2']
         ax.pie(data, labels=labels, autopct='%1.1f%%', startangle=90)
-        ax.set_title("Оценки за тесты", fontsize=10)  # Уменьшаем размер шрифта заголовка
+        ax.set_title("Оценки за тесты", fontsize=10)  
 
         return canvas
+    def addtests(self, k, v):
+        self.conte = QWidget()
+        self.conte_layout = QHBoxLayout(self.conte)
+        self.conte_layout.setContentsMargins(5, 5, 5, 5)
+        self.conte_layout.setSpacing(10)
+
+        label = QLabel(f"{k}        Оценка: {v}", self.conte)
+        label.setWordWrap(True) 
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        settings_button = QPushButton("Просмотр", self.conte)
+        settings_button.setFixedWidth(70) 
+
+
+        settings_button.clicked.connect(lambda: self.prosmotr())
+
+
+        self.conte_layout.addWidget(label, stretch=1)
+        self.conte_layout.addWidget(settings_button)
+
+        item = QListWidgetItem(self.test_list)
+        item.setSizeHint(self.conte.sizeHint())
+        self.test_list.addItem(item)
+        self.test_list.setItemWidget(item, self.conte)
+    def prosmotr(self):
+        pass
+    
 
 def main():
     app = QApplication([])
