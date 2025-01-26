@@ -23,8 +23,10 @@ CREATE TABLE IF NOT EXISTS Users (
     password TEXT NOT NULL
 )
 ''')
+connectdb.commit()
 
-connectdb = connect("test.db")
+
+connectdb2 = connect("test.db")
 cursor = connectdb.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS test (
@@ -35,10 +37,10 @@ CREATE TABLE IF NOT EXISTS test (
     otmetca INTEGER NOT NULL
 )
 ''')
-connectdb.commit()
-connectdb.close()
+connectdb2.commit()
+connectdb2.close()
 
-connectdb = connect("student.db")
+connectdb3 = connect("student.db")
 cursor = connectdb.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS students (
@@ -50,8 +52,8 @@ CREATE TABLE IF NOT EXISTS students (
     clas TEXT
 )
 ''')
-connectdb.commit()
-connectdb.close()
+connectdb3.commit()
+connectdb3.close()
 #Пример заполниния тестов
 # connectdb = connect("test.db")  # Подключение к базе данных
 # cursor = connectdb.cursor()
@@ -229,12 +231,12 @@ def otpravka_test(telegram_id, name):
     connectdb = connect("test.db")
     cursor = connectdb.cursor()
     a = "0"
-    cursor.execute('SELECT * FROM test WHERE id == ?'(a,))
+    cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
     results = cursor.fetchall()
     if results:
         while results != False:
             a += 1
-            cursor.execute('SELECT * FROM test WHERE id == ?'(a,))
+            cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
     else:
         pass
 
@@ -244,7 +246,6 @@ def otpravka_test(telegram_id, name):
                     )   
     results = cursor.fetchall()
     connectdb.commit()
-    connectdb.close()
 
 app = QApplication([])
 
@@ -256,7 +257,6 @@ class MainW(QWidget):
         self.initUI()
 
     def initUI(self):
-        #проверка на новый запрос от ученика ДЛЯ ПОКАЗА НОВОГО!!!
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute('SELECT * FROM students WHERE auth = 1 AND teacher_id = ?', (self.id,))
@@ -286,17 +286,14 @@ class MainW(QWidget):
         self.pixmap = QPixmap("avatar.png")
         self.image_label.setPixmap(self.pixmap)
 
-        # Линия с общей структурой
         general_line = QHBoxLayout()
 
-        # Лайаут 1: Список учеников
         line1 = QVBoxLayout()
         self.text1.setFont(QFont("Times New Roman", 12))
         line1.addWidget(self.text1, alignment=Qt.AlignHCenter)
         line1.addWidget(self.people)
         line1.addWidget(self.button1)
 
-        # Лайаут 2: Список классов и работ
         line2 = QVBoxLayout()
         self.text5.setFont(QFont("Times New Roman", 12))
         line2.addWidget(self.text5, alignment=Qt.AlignHCenter)
@@ -305,20 +302,17 @@ class MainW(QWidget):
         line2.addWidget(self.classes)
         line2.addWidget(self.rabot)
 
-        # Лайаут с изображением и именем пользователя
         line23 = QHBoxLayout()
         line23.addWidget(self.image_label)
         self.text3.setStyleSheet("color: black; text-decoration: bold;")
         self.text3.setFont(QFont("Times New Roman", 13))
         line23.addWidget(self.text3)
 
-        # Лайаут 3: Статистика с диаграммой
         line3 = QVBoxLayout()
         line3.addWidget(self.text2, alignment=Qt.AlignHCenter)
         self.canvas = self.create_pie_chart()
         line3.addWidget(self.canvas)
 
-        # Лайаут 4: Пользовательская информация
         line4 = QVBoxLayout()
         line4.addLayout(line23)
         self.text4.setStyleSheet("color: blue; text-decoration: underline;")
@@ -326,7 +320,6 @@ class MainW(QWidget):
         line4.addStretch(1)
         line4.addWidget(self.button2)
               
-        # Компоновка всех частей
         general_line.addLayout(line1)
         general_line.addLayout(line2)
         general_line.addLayout(line3)
@@ -361,7 +354,7 @@ class MainW(QWidget):
             test_and_ochenky = {test[0]: test[1] for test in cursor_tests.fetchall()}
 
             klass = result[5] 
-            self.add_student(itog, self.ids, telegram_user, test_and_ochenky, klass)
+            self.add_student(itog, self.ids, telegram_user, test_and_ochenky, klass, full_name)
 
         connectdb.close()
         connectdb_tests.close()
@@ -378,7 +371,7 @@ class MainW(QWidget):
         ax.set_title("Статистика класса")
         return canvas
 
-    def add_student(self, name, ids, telegram_user, test_and_ochenky, klass):
+    def add_student(self, name, ids, telegram_user, test_and_ochenky, klass, full_name):
         conte = QWidget()  # Локальная переменная
         conte_layout = QHBoxLayout(conte)
         conte_layout.setContentsMargins(5, 5, 5, 5)
@@ -390,7 +383,7 @@ class MainW(QWidget):
 
         settings_button = QPushButton("Настройки", conte)
         settings_button.setFixedWidth(70)
-        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
+        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass, full_name))
 
         conte_layout.addWidget(label, stretch=1)
         conte_layout.addWidget(settings_button)
@@ -399,93 +392,107 @@ class MainW(QWidget):
         item.setSizeHint(conte.sizeHint())
         self.people.addItem(item)
         self.people.setItemWidget(item, conte)
-
-    def delete_student(self, ids):
-        msg = QMessageBox()
-        msg.setWindowModality(Qt.ApplicationModal)
-        msg.setIcon(QMessageBox.Information)
-        msg.setWindowTitle("Информация")
-        msg.setText("Вы уверены, что хотите удалить пользователя?")
-        msg.setInformativeText("После удаления ученик больше не будет состоять в вашем классе!")
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        response = msg.exec_()
-        if response == QMessageBox.Yes:
-            for i in range(self.people.count()):
-                item = self.people.item(i)
-                widget = self.people.itemWidget(item)
-                # Проверяем ID текущего виджета, чтобы удалить нужного студента
-                if widget and widget.findChild(QLabel).text() == str(ids):
-                    self.people.takeItem(i)
-                    break
-            connectdb = connect("student.db")
-            cursor = connectdb.cursor()
-            cursor.execute("DELETE FROM students WHERE id = ?", (ids,))
-            connectdb.commit()
-            connectdb.close()
-    def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass):
-        self.sys_window = SYSWIN(self.people, self.full_name, ids, telegram_user, test_and_ochenky, klass)
+    def settings_clicked(self, name, ids, telegram_user, test_and_ochenky, klass, full_name):
+        self.sys_window = SYSWIN(self.people, full_name, ids, telegram_user, test_and_ochenky, klass)
         self.sys_window.setWindowModality(Qt.ApplicationModal)
         self.sys_window.show()
     def initUI2(self):
-        notest_peole = QDialog(self)
-        notest_peole.setWindowTitle("Новое окно")
-        notest_peole.setWindowModality(Qt.ApplicationModal)  # Блокирует доступ к родительскому окну
-        notest_peole.resize(600, 400)
+        self.notest_peole = QDialog(self)
+        self.notest_peole.setWindowTitle("Добовление студентов")
+        self.notest_peole.setWindowModality(Qt.ApplicationModal)  # Блокирует доступ к родительскому окну
+        self.notest_peole.resize(600, 400)
 
-        # Создаем элементы для нового окна
-        label = QListWidget()
-
-        # Компонуем элементы
+        self.label = QListWidget()
         layout = QVBoxLayout()
-        layout.addWidget(label)
-        notest_peole.setLayout(layout)
+
+        layout.addWidget(self.label)
+        self.notest_peole.setLayout(layout)
         self.amore_moregl()
-        notest_peole.show()
+        self.notest_peole.show()
     def amore_moregl(self):
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute('SELECT * FROM students WHERE auth = 1')
         results = cursor.fetchall() 
-
+        connectdb.close()
         for result in results:
-            self.name_amore = result[1]
-            self.id_amore = result[0]
+            name_amore = result[1]
+            id_amore = result[0]
             self.idteacher_amore = result[2]
             self.tg_amore = result[3]
             self.clas_amore = result[5]
-
-            print(result[1])
-            print(result[0])
-            print(result[2])
-            print(result[3])
-            print(result[5])
-            
-    def amore_more(self):
-        connectdb = connect("student.db")
-        cursor = connectdb.cursor()
-        cursor.execute('SELECT * FROM students WHERE auth = 1')
-        results = cursor.fetchall() 
-
+            self.amore_more(id_amore, name_amore)
+    def amore_more(self, id_amore, name_amore):
         conte = QWidget()  
         conte_layout = QHBoxLayout(conte)
         conte_layout.setContentsMargins(5, 5, 5, 5)
         conte_layout.setSpacing(10)
 
-        label = QLabel(name, conte)
+        label = QLabel(name_amore, conte)
         label.setWordWrap(True)
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        settings_button = QPushButton("Настройки", conte)
+        settings_button = QPushButton("Инфо", conte)
+        settings_button2 = QPushButton("Принять", conte)
+        settings_button3 = QPushButton("Отказать", conte)
         settings_button.setFixedWidth(70)
-        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass))
+        settings_button2.setFixedWidth(70)
+        settings_button3.setFixedWidth(70)
+        settings_button.clicked.connect(lambda: self.info(id_amore))
+        settings_button2.clicked.connect(lambda: self.addStudent(id_amore))
+        settings_button3.clicked.connect(lambda: self.exitStudent(id_amore))
 
         conte_layout.addWidget(label, stretch=1)
         conte_layout.addWidget(settings_button)
+        conte_layout.addWidget(settings_button2)
+        conte_layout.addWidget(settings_button3)
 
-        item = QListWidgetItem(self.people)
+        item = QListWidgetItem(self.label)
         item.setSizeHint(conte.sizeHint())
-        self.people.addItem(item)
-        self.people.setItemWidget(item, conte)
+        self.label.addItem(item)
+        self.label.setItemWidget(item, conte)
+    def info(self, id_amore):
+        self.informations = QDialog(self)
+        self.informations.setWindowTitle("Подробная информация")
+        self.informations.setWindowModality(Qt.ApplicationModal)  # Блокирует доступ к родительскому окну
+        self.informations.resize(342, 107)
+
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute(f"SELECT * FROM students WHERE id = ?", (id_amore,))
+        result = cursor.fetchall()
+        print(result)
+        self.label = QLabel(f"Имя: {result[0][1]}\nТелеграм: {result[0][3]}\nКласс: {result[0][5]}\nID: {result[0][0]}")
+        layout = QVBoxLayout()
+
+        layout.addWidget(self.label)
+        self.informations.setLayout(layout)
+        self.informations.show()
+    def addStudent(self, id_amore):
+        self.notest_peole.close()
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute(f'UPDATE students SET auth = 0 WHERE id = ?', (id_amore,))
+        connectdb.commit()
+        connectdb.close()
+        self.initUI2()
+    def exitStudent(self, id_amore):
+        msg = QMessageBox()
+        msg.setWindowModality(Qt.ApplicationModal)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Информация")
+        msg.setText("Вы уверены, что хотите удалить заявку этого пользователя?")
+        msg.setInformativeText("Удалять рекомендуется только в стучии несоответствий данных ученика к его реальной информации!")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        response = msg.exec_()
+        if response == QMessageBox.Yes:
+            self.notest_peole.close()
+            connectdb = connect("student.db")
+            cursor = connectdb.cursor()
+            cursor.execute(f"DELETE FROM students WHERE id = ?", (id_amore,))
+            connectdb.commit()
+            connectdb.close()
+            self.initUI2()
 
 class SYSWIN(QWidget):
     def __init__(self, people, name, ids, telegram_user, test_and_ochenky, klass):
@@ -502,7 +509,6 @@ class SYSWIN(QWidget):
         self.setWindowTitle("Static")
         self.resize(756, 488)
         self.setWindowIcon(QIcon('image.png'))
-
         # Main Layout
         main_layout = QGridLayout(self)
 
@@ -559,7 +565,7 @@ class SYSWIN(QWidget):
 
         self.action_layout = QHBoxLayout()
         self.exclude_button = QPushButton("Исключить ученика")
-        self.exclude_button.clicked.connect(lambda: MainW.delete_student(self, self.ids))
+        self.exclude_button.clicked.connect(lambda: self.delete_student(self.ids))
         self.exclude_button.setStyleSheet("background-color: lightgray;")
         self.history_button = QPushButton("История")
         self.history_button.setStyleSheet("background-color: lightgray;")
@@ -627,6 +633,31 @@ class SYSWIN(QWidget):
         item.setSizeHint(self.conte.sizeHint())
         self.test_list.addItem(item)
         self.test_list.setItemWidget(item, self.conte)
+    def delete_student(self, ids):
+        msg = QMessageBox()
+        msg.setWindowModality(Qt.ApplicationModal)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Информация")
+        msg.setText("Вы уверены, что хотите удалить пользователя?")
+        msg.setInformativeText("После удаления ученик больше не будет состоять в вашем классе!")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        response = msg.exec_()
+        if response == QMessageBox.Yes:
+            connectdb = connect("student.db")
+            cursor = connectdb.cursor()
+            cursor.execute("DELETE FROM students WHERE id = ?", (ids,))
+            connectdb.commit()
+            connectdb.close()
+            self.close()
+            msg = QMessageBox()
+            msg.setWindowModality(Qt.ApplicationModal)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Информация")
+            msg.setText("Ученик удален")
+            msg.setInformativeText("Для показа статистики и корректного показа требуется перезапустить приложение!")
+            msg.setStandardButtons(QMessageBox.Ok)
+            response = msg.exec_()
+        
     def prosmotr(self):
         pass
     
