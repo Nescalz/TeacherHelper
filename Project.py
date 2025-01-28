@@ -326,12 +326,37 @@ class MainW(QWidget):
         general_line.addLayout(line4)
         self.setLayout(general_line)
         self.button1.clicked.connect(self.initUI2)
+        self.classes.itemSelectionChanged.connect(self.check_selection)
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
+        self.analogy_result = cursor.fetchall()
         self.student()
-    def student(self):
+        self.clas()
+    def check_selection(self):
+        selected_items = self.classes.selectedItems()
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 0 AND clas = ?', (selected_items[0].text(),))
+        self.analogy_result = cursor.fetchall() 
+        self.student()
+
+    def clas(self):
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute('SELECT * FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
         results = cursor.fetchall() 
+        clases = []
+        for result in results:
+            a = result[5]
+            if a not in clases:
+                clases.append(a)
+                self.classes.addItem(a)
+        
+
+    def student(self):
+        self.people.clear()
+        results = self.analogy_result
 
         
         connectdb_tests = connect("test.db")
@@ -360,11 +385,10 @@ class MainW(QWidget):
         connectdb_tests.close()
 
     def create_pie_chart(self):
-        """Создание круговой диаграммы для отображения статистики класса."""
         figure = Figure()
         canvas = FigureCanvas(figure)
         ax = figure.add_subplot(111)
-        #делать
+
         data = [40, 30, 20, 10]
         labels = ['5', '4', '3', '2']
         ax.pie(data, labels=labels, autopct='%1.1f%%')
