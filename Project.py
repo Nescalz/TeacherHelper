@@ -24,24 +24,25 @@ CREATE TABLE IF NOT EXISTS Users (
 )
 ''')
 connectdb.commit()
+connectdb.close()
 
 
 connectdb2 = connect("test.db")
-cursor = connectdb.cursor()
+cursor = connectdb2.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS test (
-    id INTEGER PRIMARY KEY,
+    id INTEGER,
     name TEXT NOT NULL,
     teacher_id TEXT NOT NULL,
-    student_id TEXT UNIQUE NOT NULL,
-    otmetca INTEGER NOT NULL
+    student_id TEXT NOT NULL,
+    otmetca INTEGER 
 )
 ''')
 connectdb2.commit()
 connectdb2.close()
 
 connectdb3 = connect("student.db")
-cursor = connectdb.cursor()
+cursor = connectdb3.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,14 +56,14 @@ CREATE TABLE IF NOT EXISTS students (
 connectdb3.commit()
 connectdb3.close()
 #Пример заполниния тестов
-# connectdb = connect("test.db")  # Подключение к базе данных
-# cursor = connectdb.cursor()
-# cursor.execute('''
-#     INSERT INTO test (id, name, student_id, teacher_id, otmetca)
-#     VALUES (?, ?, ?, ?, ?)
-# ''', (1, "Тест для маленьких", 1, 91831411, 2))
-# connectdb.commit()
-# connectdb.close()
+connectdb = connect("test.db")  # Подключение к базе данных
+cursor = connectdb.cursor()
+cursor.execute('''
+    INSERT INTO test (id, name, student_id, teacher_id, otmetca)
+    VALUES (?, ?, ?, ?, ?)
+''', (1, "Тест для маленьких", 2, 91831411, 5))
+connectdb.commit()
+connectdb.close()
 
 #Пример заполнения студентов
 # connectdb = connect("student.db")  # Подключение к базе данных
@@ -272,7 +273,6 @@ class MainW(QWidget):
         self.button2 = QPushButton("Задать тест")
 
         self.text1 = QLabel("Список учеников")
-        self.text2 = QLabel("Статистика класса")
         self.text3 = QLabel(self.user)
         self.text4 = QLabel(f'ID: {self.id}')
         self.text5 = QLabel("Выберите класс")
@@ -310,19 +310,18 @@ class MainW(QWidget):
         
 
 
-        line4 = QVBoxLayout()
-        line4.addLayout(line23)
+        self.line4 = QVBoxLayout()
+        self.line4.addLayout(line23)
         self.text4.setStyleSheet("color: blue; text-decoration: underline;")
-        line4.addWidget(self.text4, alignment=Qt.AlignRight)
-        line4.addStretch(1)
-        line4.addWidget(self.text2, alignment=Qt.AlignHCenter)
-        self.canvas = self.create_pie_chart()
-        line4.addWidget(self.canvas)
-        line4.addWidget(self.button2)
+        self.line4.addWidget(self.text4, alignment=Qt.AlignRight)
+        self.line4.addStretch(1)
+        self.create_pie_chart("default")
+        self.line4.addWidget(self.canvas)
+        self.line4.addWidget(self.button2)
               
         general_line.addLayout(line1)
         general_line.addLayout(line2)
-        general_line.addLayout(line4)
+        general_line.addLayout(self.line4)
         self.setLayout(general_line)
         self.button1.clicked.connect(self.initUI2)
         self.classes.itemSelectionChanged.connect(self.check_selection)
@@ -348,12 +347,14 @@ class MainW(QWidget):
         square_pixmap.setMask(mask)
         self.image_label.setPixmap(square_pixmap)
     def check_selection(self):
+        self.canvas.deleteLater()
         selected_items = self.classes.selectedItems()
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute('SELECT * FROM students WHERE auth = 0 AND clas = ?', (selected_items[0].text(),))
         self.analogy_result = cursor.fetchall() 
         self.student()
+        self.create_pie_chart(selected_items[0].text())
 
     def clas(self):
         connectdb = connect("student.db")
@@ -398,18 +399,95 @@ class MainW(QWidget):
         connectdb.close()
         connectdb_tests.close()
 
-    def create_pie_chart(self):
-        figure = Figure()
-        canvas = FigureCanvas(figure)
-        ax = figure.add_subplot(111)
-        canvas.setFixedSize(400, 400) 
+    def create_pie_chart(self, xaas):
+        if xaas == "default":
 
-        data = [40, 30, 20, 10]
-        labels = ['5', '4', '3', '2']
-        ax.pie(data, labels=labels, autopct='%1.1f%%')
-        ax.set_title("Статистика класса")
-        return canvas
+            figure = Figure()
+            self.canvas = FigureCanvas(figure)
+            ax = figure.add_subplot(111)
+            self.canvas.setFixedSize(400, 400) 
 
+            connectdb = connect("test.db")
+            cursor = connectdb.cursor()
+            cursor.execute('SELECT otmetca FROM test')
+            results = cursor.fetchall()
+            pyat = 0
+            chetire = 0
+            tri = 0
+            dva = 0
+            x = 0
+            for result in results:
+                x += 1
+                a = result[0]
+                if a == 5: pyat += 1
+                elif a == 4: chetire += 1
+                elif a == 3: tri += 1
+                elif a == 2: dva += 1
+            if pyat != 0:
+                pyat = pyat/x
+            if chetire != 0:
+                chetire = chetire/x
+            if tri != 0:
+                tri = tri/x
+            if dva != 0:
+                dva = dva/x
+            data = [pyat, chetire, tri, dva]
+            if sum(data) == 0:
+                data = [100]
+                labels = ["Нет\nданных"]
+            else:
+                labels = ['5', '4', '3', '2']
+            ax.pie(data, labels=labels, autopct='%1.1f%%')
+            ax.set_title("Статистика класса")
+        else:
+            figure = Figure()
+            self.canvas = FigureCanvas(figure)
+            ax = figure.add_subplot(111)
+            self.canvas.setFixedSize(400, 400) 
+            pyat = 0
+            chetire = 0
+            tri = 0
+            dva = 0
+            x = 0
+            connectdb = connect("test.db")
+            cursor = connectdb.cursor()
+            cursor.execute('SELECT otmetca, student_id FROM test')
+            results = cursor.fetchall()
+            connectdb2 = connect("student.db")
+            cursor2 = connectdb2.cursor()
+            cursor2.execute('SELECT id FROM students WHERE clas = ?', (xaas,))
+            results2 = cursor2.fetchall()
+            for result in results:
+                for i in results2:
+                    x1 = int(result[1])
+                    x2 = int(i[0])
+                    if x1 == x2:
+                        x += 1
+                        a = result[0]
+                        if a == 5: pyat += 1
+                        elif a == 4: chetire += 1
+                        elif a == 3: tri += 1
+                        elif a == 2: dva += 1
+                        print(x)
+                    else:
+                        print(1)
+            if pyat != 0:
+                pyat = pyat/x
+            if chetire != 0:
+                chetire = chetire/x
+            if tri != 0:
+                tri = tri/x
+            if dva != 0:
+                dva = dva/x
+            data = [pyat, chetire, tri, dva]
+            if sum(data) == 0:
+                data = [100]
+                labels = ["Нет\nданных"]
+            else:
+                labels = ['5', '4', '3', '2']
+            ax.pie(data, labels=labels, autopct='%1.1f%%')
+            ax.set_title("Статистика класса")
+            self.line4.insertWidget(4, self.canvas)
     def add_student(self, name, ids, telegram_user, test_and_ochenky, klass, full_name):
         conte = QWidget()  # Локальная переменная
         conte_layout = QHBoxLayout(conte)
