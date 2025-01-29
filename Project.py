@@ -265,7 +265,7 @@ class MainW(QWidget):
         else: zvezda = ""
 
         self.setWindowTitle("Version 1")
-        self.resize(1244, 800)
+        self.resize(1000, 600)
         self.setWindowIcon(QIcon('image.png'))
 
         self.button1 = QPushButton(f"Заявки в класс{zvezda}")
@@ -282,10 +282,9 @@ class MainW(QWidget):
         self.rabot = QListWidget()
         self.people = QListWidget()
 
-        self.image_label = QLabel(self)
-        self.pixmap = QPixmap("avatar.png")
-        self.image_label.setPixmap(self.pixmap)
-
+        self.image_label = QLabel()
+        self.image_label.setFixedSize(50, 50)
+        self.load_avatar('avatar.svg')
         general_line = QHBoxLayout()
 
         line1 = QVBoxLayout()
@@ -303,26 +302,26 @@ class MainW(QWidget):
         line2.addWidget(self.rabot)
 
         line23 = QHBoxLayout()
+        line23.addStretch(1)
+        line23.addWidget(self.text3)
         line23.addWidget(self.image_label)
         self.text3.setStyleSheet("color: black; text-decoration: bold;")
         self.text3.setFont(QFont("Times New Roman", 13))
-        line23.addWidget(self.text3)
+        
 
-        line3 = QVBoxLayout()
-        line3.addWidget(self.text2, alignment=Qt.AlignHCenter)
-        self.canvas = self.create_pie_chart()
-        line3.addWidget(self.canvas)
 
         line4 = QVBoxLayout()
         line4.addLayout(line23)
         self.text4.setStyleSheet("color: blue; text-decoration: underline;")
-        line4.addWidget(self.text4, alignment=Qt.AlignHCenter)
+        line4.addWidget(self.text4, alignment=Qt.AlignRight)
         line4.addStretch(1)
+        line4.addWidget(self.text2, alignment=Qt.AlignHCenter)
+        self.canvas = self.create_pie_chart()
+        line4.addWidget(self.canvas)
         line4.addWidget(self.button2)
               
         general_line.addLayout(line1)
         general_line.addLayout(line2)
-        general_line.addLayout(line3)
         general_line.addLayout(line4)
         self.setLayout(general_line)
         self.button1.clicked.connect(self.initUI2)
@@ -333,6 +332,21 @@ class MainW(QWidget):
         self.analogy_result = cursor.fetchall()
         self.student()
         self.clas()
+    def load_avatar(self, image_path):
+        pixmap = QPixmap(image_path)
+
+        size = min(pixmap.width(), pixmap.height())
+        square_pixmap = pixmap.scaled(50, 50, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+
+        mask = QBitmap(50, 50)
+        mask.fill(Qt.color0)
+        painter = QPainter(mask)
+        painter.setBrush(Qt.color1)
+        painter.drawEllipse(0, 0, 50, 50)
+        painter.end()
+        
+        square_pixmap.setMask(mask)
+        self.image_label.setPixmap(square_pixmap)
     def check_selection(self):
         selected_items = self.classes.selectedItems()
         connectdb = connect("student.db")
@@ -388,6 +402,7 @@ class MainW(QWidget):
         figure = Figure()
         canvas = FigureCanvas(figure)
         ax = figure.add_subplot(111)
+        canvas.setFixedSize(400, 400) 
 
         data = [40, 30, 20, 10]
         labels = ['5', '4', '3', '2']
@@ -598,6 +613,7 @@ class SYSWIN(QWidget):
         right_panel.addLayout(self.action_layout)
         for k, v in self.test_and_ochenky.items(): 
             self.addtests(k, v)
+
     def create_pie_chart(self):
         figure = Figure(figsize=(2, 2)) 
         canvas = FigureCanvas(figure)
@@ -613,7 +629,7 @@ class SYSWIN(QWidget):
         else:
             self.tri = 0
 
-        if self.chetire != 0:
+        if self.chetire != 0:   
             self.chetire = self.chetire / self.colvo_ochenok * 100
         else:
             self.chetire = 0
@@ -624,8 +640,8 @@ class SYSWIN(QWidget):
             self.dva = 0
 
         data = [self.paty, self.chetire, self.tri, self.dva]
-        if sum(data) == 0:  # Если нет данных
-            data = [1]  # Устанавливаем минимальные значения
+        if sum(data) == 0: 
+            data = [1]  
             labels = ['Нет данных']
         else:
             labels = ['5', '4', '3', '2']
