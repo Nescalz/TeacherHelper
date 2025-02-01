@@ -6,7 +6,8 @@ from random import randint
 import os
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-
+from time import strftime
+import json
 if not os.path.exists(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests")):
     os.makedirs(os.path.join(os.path.join(os.path.expanduser("~"), "Documents"), "tests"))
 else:
@@ -50,20 +51,21 @@ CREATE TABLE IF NOT EXISTS students (
     teacher_id TEXT NOT NULL,
     telegram_id TEXT UNIQUE NOT NULL,
     auth BOOLEAN,
-    clas TEXT
+    clas TEXT,
+    history TEXT
 )
 ''')
 connectdb3.commit()
 connectdb3.close()
 #Пример заполниния тестов
-connectdb = connect("test.db")  # Подключение к базе данных
-cursor = connectdb.cursor()
-cursor.execute('''
-    INSERT INTO test (id, name, student_id, teacher_id, otmetca)
-    VALUES (?, ?, ?, ?, ?)
-''', (1, "Тест для маленьких", 2, 91831411, 5))
-connectdb.commit()
-connectdb.close()
+# connectdb = connect("test.db")  # Подключение к базе данных
+# cursor = connectdb.cursor()
+# cursor.execute('''
+#     INSERT INTO test (id, name, student_id, teacher_id, otmetca)
+#     VALUES (?, ?, ?, ?, ?)
+# ''', (1, "Тест для маленьких", 2, 91831411, 5))
+# connectdb.commit()
+# connectdb.close()
 
 #Пример заполнения студентов
 # connectdb = connect("student.db")  # Подключение к базе данных
@@ -71,7 +73,7 @@ connectdb.close()
 # cursor.execute('''
 #     INSERT INTO students (name, id, teacher_id, telegram_id, auth, clas)
 #     VALUES (?, ?, ?, ?, ?, ?)
-# ''', ("Тайлер Дерден Алексанлрович", 1, 91831411, "@Nescalz", 0 **(1 - Требуется принять ученика учителем, 0 - Ученик уже находится под надзором учителя)** , "1Б"))
+# ''', ("Тайлер Дерден Алексанлрович", 2, 91831411, "@z", 1  , "1Б"))
 # connectdb.commit()
 # connectdb.close()
 
@@ -228,25 +230,25 @@ class MainWindow(QWidget):
             msgwarning.exec_()
 #запросы - отправки
 
-def otpravka_test(telegram_id, name):
-    connectdb = connect("test.db")
-    cursor = connectdb.cursor()
-    a = "0"
-    cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
-    results = cursor.fetchall()
-    if results:
-        while results != False:
-            a += 1
-            cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
-    else:
-        pass
+# def otpravka_test(telegram_id, name):
+#     connectdb = connect("test.db")
+#     cursor = connectdb.cursor()
+#     a = "0"
+#     cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
+#     results = cursor.fetchall()
+#     if results:
+#         while results != False:
+#             a += 1
+#             cursor.execute('SELECT * FROM test WHERE id = ?', (a,))
+#     else:
+#         pass
 
-    cursor.execute(                                                    #
-                        'INSERT INTO test (id, name, telegram_id) VALUES (?, ?, ?)', # данный строки преднозначены для защиты от sql иньекции
-                        (a, name, telegram_id)            #
-                    )   
-    results = cursor.fetchall()
-    connectdb.commit()
+#     cursor.execute(                                                    #
+#                         'INSERT INTO test (id, name, telegram_id) VALUES (?, ?, ?)', # данный строки преднозначены для защиты от sql иньекции
+#                         (a, name, telegram_id)            #
+#                     )   
+#     results = cursor.fetchall()
+#     connectdb.commit()
 
 app = QApplication([])
 
@@ -468,9 +470,6 @@ class MainW(QWidget):
                         elif a == 4: chetire += 1
                         elif a == 3: tri += 1
                         elif a == 2: dva += 1
-                        print(x)
-                    else:
-                        print(1)
             if pyat != 0:
                 pyat = pyat/x
             if chetire != 0:
@@ -489,7 +488,7 @@ class MainW(QWidget):
             ax.set_title("Статистика класса")
             self.line4.insertWidget(4, self.canvas)
     def add_student(self, name, ids, telegram_user, test_and_ochenky, klass, full_name):
-        conte = QWidget()  # Локальная переменная
+        conte = QWidget()  
         conte_layout = QHBoxLayout(conte)
         conte_layout.setContentsMargins(5, 5, 5, 5)
         conte_layout.setSpacing(10)
@@ -578,7 +577,6 @@ class MainW(QWidget):
         cursor = connectdb.cursor()
         cursor.execute(f"SELECT * FROM students WHERE id = ?", (id_amore,))
         result = cursor.fetchall()
-        print(result)
         self.label = QLabel(f"Имя: {result[0][1]}\nТелеграм: {result[0][3]}\nКласс: {result[0][5]}\nID: {result[0][0]}")
         layout = QVBoxLayout()
 
@@ -590,6 +588,26 @@ class MainW(QWidget):
         connectdb = connect("student.db")
         cursor = connectdb.cursor()
         cursor.execute(f'UPDATE students SET auth = 0 WHERE id = ?', (id_amore,))
+        full_format = strftime("%d.%m.%Y %H:%M:%S - ")
+        history = f"{full_format}Пользователь принят в класс"
+        cursor.execute("SELECT history FROM students WHERE id = ?", (id_amore, ))
+        res = cursor.fetchall()
+        if res and res[0]:  # Если history уже содержит данные
+            try:
+                # Извлекаем строку из кортежа и парсим JSON
+                history_list = json.loads(res[0])  # res[0] — это строка JSON
+            except :
+                # Если history не является валидным JSON, создаем новый список
+                history_list = []
+        else:  # Если history пустой
+            history_list = []
+        new_entry = {
+            "date": strftime("%d.%m.%Y %H:%M:%S"),
+            "event": "Пользователь принят в класс"
+                }
+        history_list.append(new_entry)
+        cursor.execute(f"UPDATE students SET history = ? WHERE id = ?", (json.dumps(history_list, ensure_ascii=False), id_amore,))
+
         connectdb.commit()
         connectdb.close()
         self.initUI2()
@@ -688,10 +706,28 @@ class SYSWIN(QWidget):
         self.history_button.setStyleSheet("background-color: lightgray;")
         self.action_layout.addWidget(self.exclude_button)
         self.action_layout.addWidget(self.history_button)
+        self.history_button.clicked.connect(lambda: self.history(self.ids))
         right_panel.addLayout(self.action_layout)
         for k, v in self.test_and_ochenky.items(): 
             self.addtests(k, v)
-
+    def history(self, id):
+        
+        dial = QDialog()
+        dial.setWindowTitle("История")
+        dial.setWindowModality(Qt.ApplicationModal)
+        dial.resize(645, 325)
+        lists = QListWidget()
+        label = QHBoxLayout()
+        label.addWidget(lists)
+        dial.setLayout(label)
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute("SELECT history FROM students WHERE id = ?", (id,))
+        results = cursor.fetchall()
+        for res in results:
+            lists.addItem(res[0])
+        dial.show()
+        dial.exec_()
     def create_pie_chart(self):
         figure = Figure(figsize=(2, 2)) 
         canvas = FigureCanvas(figure)
