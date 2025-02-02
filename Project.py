@@ -14,7 +14,6 @@ else:
     pass
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 connectdb = connect("database.db")
 cursor = connectdb.cursor()
 cursor.execute('''
@@ -46,7 +45,7 @@ connectdb3 = connect("student.db")
 cursor = connectdb3.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS students (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     teacher_id TEXT NOT NULL,
     telegram_id TEXT UNIQUE NOT NULL,
