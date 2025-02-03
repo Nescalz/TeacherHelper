@@ -33,9 +33,12 @@ cursor.execute('''
 CREATE TABLE IF NOT EXISTS test (
     id INTEGER,
     name TEXT NOT NULL,
+    description text,
     teacher_id TEXT NOT NULL,
     student_id TEXT NOT NULL,
-    otmetca INTEGER 
+    test TEXT,
+    otmetca INTEGER
+            
 )
 ''')
 connectdb2.commit()
@@ -254,7 +257,7 @@ app = QApplication([])
 class MainW(QWidget):
     def __init__(self, user, id):
         super().__init__()
-        self.user = user
+        self.name = user
         self.id = id
         self.initUI()
 
@@ -274,7 +277,7 @@ class MainW(QWidget):
         self.button2 = QPushButton("Задать тест")
 
         self.text1 = QLabel("Список учеников")
-        self.text3 = QLabel(self.user)
+        self.text3 = QLabel(self.name)
         self.text4 = QLabel(f'ID: {self.id}')
         self.text5 = QLabel("Выберите класс")
         self.text6 = QLabel("для просмотра информации")
@@ -308,8 +311,6 @@ class MainW(QWidget):
         line23.addWidget(self.image_label)
         self.text3.setStyleSheet("color: black; text-decoration: bold;")
         self.text3.setFont(QFont("Times New Roman", 13))
-        
-
 
         self.line4 = QVBoxLayout()
         self.line4.addLayout(line23)
@@ -324,6 +325,7 @@ class MainW(QWidget):
         general_line.addLayout(line2)
         general_line.addLayout(self.line4)
         self.setLayout(general_line)
+        self.button2.clicked.connect(self.testers)
         self.button1.clicked.connect(self.initUI2)
         self.classes.itemSelectionChanged.connect(self.check_selection)
         connectdb = connect("student.db")
@@ -332,10 +334,13 @@ class MainW(QWidget):
         self.analogy_result = cursor.fetchall()
         self.student()
         self.clas()
+    def testers(self):
+        self.hide()
+        self.make = testers(self.id, self.name)
+        self.make.show()
     def load_avatar(self, image_path):
         pixmap = QPixmap(image_path)
 
-        size = min(pixmap.width(), pixmap.height())
         square_pixmap = pixmap.scaled(50, 50, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
 
         mask = QBitmap(50, 50)
@@ -588,7 +593,6 @@ class MainW(QWidget):
         cursor = connectdb.cursor()
         cursor.execute(f'UPDATE students SET auth = 0 WHERE id = ?', (id_amore,))
         full_format = strftime("%d.%m.%Y %H:%M:%S - ")
-        history = f"{full_format}Пользователь принят в класс"
         cursor.execute("SELECT history FROM students WHERE id = ?", (id_amore, ))
         res = cursor.fetchall()
         if res and res[0]:  # Если history уже содержит данные
@@ -815,6 +819,78 @@ class SYSWIN(QWidget):
         pass
     
 
+class testers(QWidget):
+    def __init__(self, id, user):
+        super().__init__()
+        self.id = id
+        self.user = user
+        self.initUI()
+    def initUI(self):
+        self.setWindowTitle("Меню тестов")
+        self.resize(1000, 600)
+        self.setWindowIcon(QIcon('image.png'))
+        self.testline = QListWidget()
+        self.classline = QListWidget()
+        self.isk = QListWidget()
+
+        but1 = QPushButton("Добавить тест")
+        but2 = QPushButton("Запустить тест")
+        nextbut = QPushButton("<< Назад")
+
+        abel = QVBoxLayout()
+        abel.addWidget(nextbut)
+        abel.addWidget(self.testline)
+        abel.addWidget(but1)
+        abel2 = QVBoxLayout()
+        abel2.addWidget(self.classline)
+        abel3 = QVBoxLayout()
+        abel3.addWidget(self.isk)
+        abel3.addWidget(but2)
+        abel_general = QHBoxLayout()
+        abel_general.addLayout(abel)
+        abel_general.addLayout(abel2)
+        abel_general.addLayout(abel3)
+
+        self.setLayout(abel_general)
+
+        nextbut.clicked.connect(self.nextb)
+        but1.clicked.connect(self.addTests)
+        but2.clicked.connect(self.startTests)
+
+
+    def nextb(self):
+        self.hide()  
+        self.close() 
+        make = MainW(self.user, self.id)  
+        make.show()
+    def addTests(self):
+        pass
+    def startTests(self):
+        pass
+    def lineTests(self):
+        conte = QWidget()  
+        conte_layout = QHBoxLayout(conte)
+        conte_layout.setContentsMargins(5, 5, 5, 5)
+        conte_layout.setSpacing(10)
+
+        label = QLabel(name, conte)
+        label.setWordWrap(True)
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        settings_button = QPushButton("Настройки", conte)
+        settings_button.setFixedWidth(70)
+        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass, full_name))
+
+        conte_layout.addWidget(label, stretch=1)
+        conte_layout.addWidget(settings_button)
+
+        item = QListWidgetItem(self.people)
+        item.setSizeHint(conte.sizeHint())
+        self.people.addItem(item)
+        self.people.setItemWidget(item, conte)
+        
+
+
 def main():
     app = QApplication([])
     window = MainWindow()
@@ -822,5 +898,3 @@ def main():
     app.exec_()
 if __name__ == "__main__":
     main()
-    connectdb.commit()
-    connectdb.close()
