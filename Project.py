@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS test (
     description text,
     teacher_id TEXT NOT NULL,
     student_id TEXT NOT NULL,
-    test TEXT,
+    test INTEGER,
     otmetca INTEGER
             
 )
@@ -63,9 +63,9 @@ connectdb3.close()
 # connectdb = connect("test.db")  # Подключение к базе данных
 # cursor = connectdb.cursor()
 # cursor.execute('''
-#     INSERT INTO test (id, name, student_id, teacher_id, otmetca)
-#     VALUES (?, ?, ?, ?, ?)
-# ''', (1, "Тест для маленьких", 2, 91831411, 5))
+#     INSERT INTO test (id, name, description, teacher_id, student_id, test, otmetca)
+#     VALUES (?, ?, ?, ?, ?, ?, ?)
+# ''', (1, "Тест для маленьких", "Тест на знание граматики", 91831411, 1, "1", 0))
 # connectdb.commit()
 # connectdb.close()
 
@@ -155,6 +155,8 @@ class MainWindow(QWidget):
 
     def register(self):
         if self.login.text() and self.password.text():
+            connectdb = connect("database.db")
+            cursor = connectdb.cursor()
             randomid = randint(10000000, 99999999) #89 999 999 возможных комбинаций id
             cursor.execute("SELECT username FROM users WHERE username = ?", (self.login.text(),))
             res = cursor.fetchone()
@@ -856,8 +858,61 @@ class testers(QWidget):
         nextbut.clicked.connect(self.nextb)
         but1.clicked.connect(self.addTests)
         but2.clicked.connect(self.startTests)
+        connectdb = connect("test.db")
+        cursor = connectdb.cursor()
+        cursor.execute(f"SELECT id, name, description FROM test WHERE teacher_id = ?", (self.id,))
+        result = cursor.fetchall()
+        connectdb.close()
+        for i in result:
+            self.lineTests(i[1], i[2], i[0])
+        self.classline.itemSelectionChanged.connect(self.selection)
+        self.clas()
+    def selection(self):
+        selected_items = self.classline.selectedItems()
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 0 AND clas = ?', (selected_items[0].text(),))
+        self.analogy_result = cursor.fetchall() 
+        self.student()
+    def student(self):
+        self.classline.clear()
+        results = self.analogy_result
+        
+        connectdb_tests = connect("test.db")
+        cursor_tests = connectdb_tests.cursor()
 
+        for result in results:
+            full_name = result[1]  
+            parts = full_name.split()
+            if len(parts) >= 2:  
+                last_name = parts[0]
+                initials = ''.join(f'{name[0]}.' for name in parts[1:])
+                itog = f'{last_name} {initials}'
+            else:
+                itog = full_name
+            self.ids = result[0]
+            telegram_user = result[3]
+            self.full_name = full_name
 
+            cursor_tests.execute('SELECT name, otmetca FROM test WHERE student_id = ?', (self.ids,))
+            test_and_ochenky = {test[0]: test[1] for test in cursor_tests.fetchall()}
+
+            klass = result[5] 
+            self.add_student(itog, self.ids, telegram_user, test_and_ochenky, klass, full_name)
+
+        connectdb.close()
+        connectdb_tests.close()
+    def clas(self):
+        connectdb = connect("student.db")
+        cursor = connectdb.cursor()
+        cursor.execute('SELECT * FROM students WHERE auth = 0 AND teacher_id = ?', (self.id,))
+        results = cursor.fetchall() 
+        clases = []
+        for result in results:
+            a = result[5]
+            if a not in clases:
+                clases.append(a)
+                self.classline.addItem(a)
     def nextb(self):
         self.hide()  
         self.close() 
@@ -867,27 +922,29 @@ class testers(QWidget):
         pass
     def startTests(self):
         pass
-    def lineTests(self):
+    def lineTests(self, name, description, id):
         conte = QWidget()  
         conte_layout = QHBoxLayout(conte)
         conte_layout.setContentsMargins(5, 5, 5, 5)
         conte_layout.setSpacing(10)
 
-        label = QLabel(name, conte)
+        label = QLabel(f"{name}\n{description}", conte)
         label.setWordWrap(True)
         label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         settings_button = QPushButton("Настройки", conte)
         settings_button.setFixedWidth(70)
-        settings_button.clicked.connect(lambda: self.settings_clicked(name, ids, telegram_user, test_and_ochenky, klass, full_name))
+        settings_button.clicked.connect(self.settings_tests)
 
         conte_layout.addWidget(label, stretch=1)
         conte_layout.addWidget(settings_button)
 
-        item = QListWidgetItem(self.people)
+        item = QListWidgetItem(self.testline)
         item.setSizeHint(conte.sizeHint())
-        self.people.addItem(item)
-        self.people.setItemWidget(item, conte)
+        self.testline.addItem(item)
+        self.testline.setItemWidget(item, conte)
+    def settings_tests(self):
+        pass
         
 
 
